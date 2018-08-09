@@ -31,29 +31,28 @@ const app = express();
 
 app.use(express.static("dist"));
 
+app.get("/api/v1/users", (req, res) => {
+  let users = usersCollection.find().toArray();
+
+  res.json(users);
+});
+
 app.post("/api/v1/login", (req, res, next) => {
   let user = usersCollection.findOne({ username: req.body.username });
-  if (user) {
-    let cookie = cookiesCollection.findOne({ userId: user._id });
-    if (cookie) {
-      document.cookie = `userCookie=${cookie.val}`;
-    } else {
-      let val = randomString(36);
-      cookiesCollection.insertOne({
-        userId: user._id,
-        val
-      });
-      document.cookie = `userCookie=${val}`;
-    }
-  } else {
-    let userId = usersCollection.insertOne({ username: req.body.username })
-      .insertedId;
+  if (!user) {
+    usersCollection.insertOne({
+      username: req.body.username,
+      isAdmin: false
+    });
+    user = usersCollection.findOne({ username: req.body.username });
+  }
+  let cookie = cookiesCollection.findOne({ userId: user._id });
+  if (!cookie) {
     let val = randomString(36);
     cookiesCollection.insertOne({
-      userId: userId,
+      userId: user._id,
       val
     });
-    document.cookie = `userCookie=${val}`;
   }
 });
 
