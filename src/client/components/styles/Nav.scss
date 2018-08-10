@@ -1,7 +1,10 @@
 .nav {
   padding: 10px;
 
-  h1 {
-    color: white;
+  .form-inline {
+    input,
+    button {
+      margin: 2px;
+    }
   }
 }
