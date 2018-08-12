@@ -1,83 +1,99 @@
-import React, { Component } from "react";
-import "./styles/Nav.scss";
-//Helpers
-import LoginButtons from "./helpers/Nav/LoginButtons";
-import LoginForm from "./helpers/Nav/LoginForm";
+import React, { Component } from 'react';
+import PropTypes from 'prop-types';
+import './styles/Nav.scss';
+// Helpers
+import LoginButtons from './helpers/Nav/LoginButtons';
+import LoginForm from './helpers/Nav/LoginForm';
 
 export default class Nav extends Component {
   constructor() {
     super();
 
     this.state = {
-      usernameInput: "",
-      passwordInput: ""
+      username: '',
+      password: '',
+      firstName: '',
+      lastName: ''
     };
 
     this.toggleLogin = this.toggleLogin.bind(this);
-    this.handleUsername = this.handleUsername.bind(this);
-    this.handlePassword = this.handlePassword.bind(this);
+    this.handleInput = this.handleInput.bind(this);
   }
 
-  toggleLogin() {
-    this.setState({ showLogin: !this.state.showLogin });
+  toggleLogin(type) {
+    const { showLogin } = this.state;
+    this.setState({ showLogin: !showLogin, loginType: type });
   }
 
-  handleUsername(e) {
-    this.setState({ usernameInput: e.target.value });
-  }
-
-  handlePassword(e) {
-    this.setState({ passwordInput: e.target.value });
+  handleInput(key, event) {
+    const object = {};
+    object[key] = event.target.value;
+    this.setState(object);
   }
 
   render() {
+    const {
+      user, login, signup, toggleSideMenu
+    } = this.props;
+    const { loginType, showLogin } = this.state;
     return (
-      <div className="nav">
-        <div className="title">
+      <div className="nav row">
+        <div className="title col-auto mx-auto mx-md-0 mb-2 mb-md-0">
           <div className="logo d-inline-block mr-2">
             <i className="fa fa-globe fa-2x logo-icon" />
           </div>
           <h3 className="title-text d-inline font-weight-light">
-            A Dark World
+A Dark World
           </h3>
         </div>
-        {!this.props.user ? (
-          <div className="login ml-auto">
-            {this.state.showLogin ? (
-              <LoginForm
-                toggleLogin={this.toggleLogin}
-                handleUsername={this.handleUsername}
-                handlePassword={this.handlePassword}
-                usernameInput={this.state.usernameInput}
-                passwordInput={this.state.passwordInput}
-                login={() =>
-                  this.props.login(
-                    this.state.usernameInput,
-                    this.state.passwordInput
-                  )
-                }
-              />
-            ) : (
-              <LoginButtons toggleLogin={this.toggleLogin} />
-            )}
-          </div>
-        ) : (
-          <div className="profile ml-auto row">
-            <div className="my-auto">
-              <h3 className="hello-user font-weight-light d-inline mr-2">
-                Hello,{" "}
-                {`${this.props.user.first_name} ${this.props.user.last_name}`}
-              </h3>
+        <div className="col-12 col-md-1" />
+        <div className="col-auto mx-auto mr-md-0">
+          {!user ? (
+            <div className="container login">
+              {showLogin ? (
+                <LoginForm
+                  formType={loginType}
+                  toggleLogin={this.toggleLogin}
+                  state={this.state}
+                  handleInput={(key, e) => this.handleInput(key, e)}
+                  login={() => login(this.state)}
+                  signup={() => signup(this.state)}
+                />
+              ) : (
+                <LoginButtons toggleLogin={this.toggleLogin} />
+              )}
             </div>
-            <button
-              className="btn btn-outline-light d-inline"
-              onClick={this.props.toggleSideMenu}
-            >
-              <i className="fa fa-bars" />
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="profile row">
+              <div className="my-auto">
+                <h3 className="hello-user font-weight-light d-inline mr-2">
+                  Hello,
+                  {' '}
+                  {`${user.firstName} ${user.lastName}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline-light d-inline"
+                onClick={toggleSideMenu}
+              >
+                <i className="fa fa-bars" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 }
+
+Nav.defaultProps = {
+  user: undefined
+};
+
+Nav.propTypes = {
+  user: PropTypes.object,
+  login: PropTypes.func.isRequired,
+  signup: PropTypes.func.isRequired,
+  toggleSideMenu: PropTypes.func.isRequired
+};

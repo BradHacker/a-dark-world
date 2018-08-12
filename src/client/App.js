@@ -1,73 +1,100 @@
-import React, { Component } from "react";
-import "./app.scss";
-import "bootstrap/dist/css/bootstrap.css";
-import cookie from "react-cookies";
-import axios from "axios";
+import React, { Component } from 'react';
+import './app.scss';
+import 'bootstrap/dist/css/bootstrap.css';
+import cookie from 'react-cookies';
+import axios from 'axios';
 // Components
-import Nav from "./components/Nav";
-import Sidemenu from "./components/Sidemenu";
+import Nav from './components/Nav';
+import Sidemenu from './components/Sidemenu';
 
 export default class App extends Component {
   constructor() {
     super();
 
     this.state = {
-      userCookie: cookie.load("guid")
+      sessionId: cookie.load('sessionId')
     };
 
-    if (this.state.userCookie) {
+    const { sessionId } = this.state;
+    if (sessionId) {
       axios
-        .get(`/api/v1/uids/${this.state.userCookie}`)
+        .get(`/api/v1/sessions/${sessionId}`)
         .then(response => this.getUserInfo(response.data.userId));
     }
 
     this.login = this.login.bind(this);
+    this.signup = this.signup.bind(this);
+    this.logout = this.logout.bind(this);
     this.toggleSideMenu = this.toggleSideMenu.bind(this);
   }
 
-  login(username, password) {
-    axios.get(`/api/v1/login?username=${username}&password=${password}`).then(
-      response => {
-        cookie.save("guid", response.data.cookie, { path: "/" });
-        this.setState({ user: response.data.user });
-      },
-      err => {
-        console.error(err);
-      }
-    );
-  }
-
-  logout() {
-    cookie.remove("guid");
-    window.location.reload();
-  }
-
   getUserInfo(userId) {
-    axios.get(`/api/v1/users/${userId}`).then(response => {
+    axios.get(`/api/v1/users/${userId}`).then((response) => {
       this.setState({ user: response.data });
     });
   }
 
+  login(state) {
+    axios
+      .post('/api/v1/login', {
+        username: state.username,
+        password: state.password
+      })
+      .then(
+        (response) => {
+          cookie.save('sessionId', response.data.sessionId, { path: '/' });
+          this.setState({ user: response.data.user });
+        },
+        (err) => {
+          console.error(err);
+        }
+      );
+  }
+
+  signup(state) {
+    axios
+      .post('/api/v1/signup', {
+        username: state.username,
+        password: state.password,
+        firstName: state.firstName,
+        lastName: state.lastName
+      })
+      .then(
+        (response) => {
+          cookie.save('guid', response.data.sessionId, { path: '/' });
+          this.getUserInfo(response.data.insertedId);
+        },
+        (err) => {
+          console.error(err);
+        }
+      );
+  }
+
+  logout() {
+    this.setState({ user: undefined, sessionId: undefined });
+    cookie.remove('sessionId');
+    window.location.reload();
+  }
+
   toggleSideMenu() {
-    this.setState({ showSideMenu: !this.state.showSideMenu });
+    const { showSideMenu } = this.state;
+    this.setState({ showSideMenu: !showSideMenu });
   }
 
   render() {
+    const { user, showSideMenu } = this.state;
     return (
       <div className="container-fluid">
         <div className="row">
           <div className="col">
             <Nav
               login={this.login}
-              user={this.state.user}
+              signup={this.signup}
+              user={user}
               toggleSideMenu={this.toggleSideMenu}
             />
           </div>
-          {this.state.showSideMenu ? (
-            <Sidemenu logout={this.logout} />
-          ) : (
-            <div />
-          )}
+          {showSideMenu ? <Sidemenu logout={this.logout} /> : <div />}
         </div>
       </div>
     );

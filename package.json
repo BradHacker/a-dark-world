@@ -4,9 +4,9 @@
   "description": "Boilerplate to build a full stack web application using React, Node.js, Express and Webpack.",
   "main": "src/server/index.js",
   "scripts": {
-    "start": "node src/server/index.js",
+    "start": "concurrently \"node src/server/index.js\" \"npm run db\"",
     "build": "webpack --mode production",
-    "client": "webpack-dev-server --mode development --devtool inline-source-map --hot",
+    "client": "webpack-serve --config ./webpack.config.js --hotClient",
     "db": "mongod --dbpath db",
     "server": "nodemon src/server/index.js",
     "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run db\""
@@ -15,10 +15,14 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.18.0",
+    "bcrypt": "^3.0.0",
     "bootstrap": "^4.1.3",
+    "concurrently": "^3.6.1",
     "express": "^4.16.3",
+    "http-proxy-middleware": "^0.18.0",
     "mongodb": "^3.1.1",
     "password-hash": "^1.2.2",
+    "prop-types": "^15.6.2",
     "random-base64-string": "^1.0.1",
     "react": "^16.3.1",
     "react-cookies": "^0.1.0",
@@ -31,7 +35,6 @@
     "babel-preset-env": "^1.6.1",
     "babel-preset-react": "^6.24.1",
     "clean-webpack-plugin": "^0.1.19",
-    "concurrently": "^3.5.1",
     "css-loader": "^1.0.0",
     "eslint": "^5.0.0",
     "eslint-config-airbnb": "^17.0.0",
@@ -40,13 +43,15 @@
     "eslint-plugin-react": "^7.7.0",
     "file-loader": "^1.1.11",
     "html-webpack-plugin": "^3.2.0",
+    "koa-connect": "^2.0.1",
     "node-sass": "^4.9.3",
     "nodemon": "^1.17.3",
     "sass-loader": "^7.1.0",
     "style-loader": "^0.22.0",
+    "typescript": "^3.1.0-dev.20180810",
     "url-loader": "^1.0.1",
-    "webpack": "^4.5.0",
+    "webpack": "^4.16.5",
     "webpack-cli": "^3.0.8",
-    "webpack-dev-server": "^3.1.3"
+    "webpack-serve": "^2.0.2"
   }
 }

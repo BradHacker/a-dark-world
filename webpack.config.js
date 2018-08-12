@@ -2,10 +2,16 @@ const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CleanWebpackPlugin = require("clean-webpack-plugin");
 
+const proxy = require("http-proxy-middleware");
+const convert = require("koa-connect");
+
 const outputDirectory = "dist";
 
 module.exports = {
-  entry: "./src/client/index.js",
+  entry: {
+    index: "./src/client/index.js"
+  },
+  mode: "development",
   output: {
     path: path.join(__dirname, outputDirectory),
     filename: "bundle.js"
@@ -29,18 +35,25 @@ module.exports = {
       }
     ]
   },
-  devServer: {
-    port: 3000,
-    open: true,
-    proxy: {
-      "/api": "http://localhost:8080"
-    }
-  },
   plugins: [
     new CleanWebpackPlugin([outputDirectory]),
     new HtmlWebpackPlugin({
       template: "./public/index.html",
       favicon: "./public/favicon.ico"
     })
-  ]
+  ],
+  serve: {
+    open: {
+      app: "Google Chrome",
+      path: "/"
+    },
+    port: 3000,
+    add: (app, middleware, options) => {
+      middleware.webpack();
+      middleware.content();
+      app.use(convert(proxy("/api", { target: "http://localhost:8080" })));
+    }
+  },
+  mode: process.env.WEBPACK_SERVE ? "development" : "production",
+  devtool: "inline-source-map"
 };

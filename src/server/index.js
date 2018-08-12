@@ -1,37 +1,42 @@
-const express = require("express");
-const mongo = require("mongodb");
-const MongoClient = mongo.MongoClient;
-const randomString = require("random-base64-string");
-const passwordHash = require("password-hash");
-let db, cookiesCollection, usersCollection;
+/* eslint-disable no-param-reassign */
+const express = require('express');
+const mongo = require('mongodb');
+
+const { MongoClient } = mongo;
+const bcrypt = require('bcrypt');
+const { findOrCreateSession } = require('./sessions');
+
+let db;
+let sessionsCollection;
+let usersCollection;
+const globalSaltRounds = 10;
 
 MongoClient.connect(
-  "mongodb://localhost:27017/",
-  function(err, client) {
+  'mongodb://localhost:27017/',
+  (err, client) => {
     if (err) throw err;
 
-    db = client.db("db");
-    cookiesCollection = db.collection("cookies");
-    usersCollection = db.collection("users");
+    db = client.db('db');
+    sessionsCollection = db.collection('sessions');
+    usersCollection = db.collection('users');
 
     usersCollection
       .findOne({
         isAdmin: true
       })
-      .then(response => {
+      .then((response) => {
         if (!response) {
-          password = passwordHash.generate("root");
+          const password = bcrypt.hashSync('root', globalSaltRounds);
           usersCollection
             .insertOne({
-              username: "Admin",
-              first_name: "Admin",
-              last_name: "Admin",
+              username: 'Admin',
+              first_name: 'Admin',
+              last_name: 'Admin',
               password,
               isAdmin: true
             })
-            .then(response => {
-              console.info("Insert One Finished");
-              console.info(response);
+            .then(() => {
+              console.info('Added default Admin');
             });
         }
       });
@@ -40,89 +45,115 @@ MongoClient.connect(
 
 const app = express();
 
-app.use("/static", express.static("public/res"));
-app.use(express.static("dist"));
+app.use('/static', express.static('public/res'));
+app.use(express.static('dist'));
+app.use(express.json());
 
-app.get("/api/v1/users", (req, res) => {
+app.get('/api/v1/users', (req, res) => {
   usersCollection
     .find()
     .project({ password: 0 })
     .toArray()
-    .then(response => {
+    .then((response) => {
       res.json({ users: response });
     });
 });
 
-app.get("/api/v1/users/:id", (req, res) => {
+app.get('/api/v1/users/:id', (req, res) => {
   usersCollection
     .find({
       _id: new mongo.ObjectId(req.params.id)
     })
     .project({ _id: 0, password: 0 })
     .toArray()
-    .then(user => {
-      console.info("RESPONSE");
+    .then((user) => {
+      console.info('RESPONSE');
       console.info(user);
       if (user[0]) {
         console.log(user[0]);
         res.json(user[0]);
-        return;
       } else {
         res.json({
           errors: {
-            message: "User not found"
+            message: 'User not found'
           }
         });
       }
     });
 });
 
-app.get("/api/v1/login", (req, res) => {
-  usersCollection.findOne({ username: req.query.username }).then(user => {
-    if (user && passwordHash.verify(req.query.password, user.password)) {
-      cookiesCollection.findOne({ userId: user._id }).then(cookie => {
-        if (!cookie) {
-          let val = randomString(36);
-          cookiesCollection
-            .insertOne({
-              userId: user._id,
-              val
-            })
-            .then(() => {
-              res.json({ cookie: val, user });
-            });
-        } else {
-          //console.info("Cookie already found");
-          res.json({ cookie: cookie.val, user });
-        }
-      });
+app.get('/api/v1/sessions/:sessionId', (req, res) => {
+  sessionsCollection
+    .findOne({
+      sessionId: req.params.sessionId
+    })
+    .then((session) => {
+      if (session) {
+        res.json(session);
+      } else {
+        res.status(404).json({
+          errors: {
+            message: 'Session ID Not Found'
+          }
+        });
+      }
+    });
+});
+
+app.post('/api/v1/login', (req, res) => {
+  console.log(req);
+  usersCollection.findOne({ username: req.body.username }).then((user) => {
+    if (user && bcrypt.compareSync(req.body.password, user.password)) {
+      const sessionId = findOrCreateSession(sessionsCollection, user._id);
+      delete user.password;
+      res.json({ sessionId, user });
+      usersCollection.findOneAndUpdate({ _id: user._id }, { $set: { lastLogin: new Date() } });
     } else {
       res.status(401).json({
         status: 401,
         errors: {
-          message: "Username or password incorrect"
+          message: 'Username or password incorrect'
         }
       });
     }
   });
 });
 
-app.get("/api/v1/uids/:guid", (req, res) => {
-  cookiesCollection
-    .findOne({
-      val: req.params.guid
-    })
-    .then(cookie => {
-      if (cookie) {
-        res.json(cookie);
-      } else {
-        res.status(404).json({
-          errors: {
-            message: "GUID Not Found"
-          }
-        });
+app.post('/api/v1/signup', (req, res) => {
+  const {
+    username, password, firstName, lastName
+  } = req.body;
+  if (!password || !username) {
+    res.status(422).json({
+      errors: {
+        username: username ? undefined : 'username blank',
+        password: password ? undefined : 'password blank'
       }
     });
+  } else {
+    usersCollection.findOne({ username }).then((user) => {
+      if (user || password.length < 8) {
+        res.status(422).json({
+          errors: {
+            username: !user ? undefined : 'username duplicated',
+            password: password.length >= 8 ? undefined : 'password must be 8 characters'
+          }
+        });
+      } else {
+        usersCollection
+          .insertOne({
+            username,
+            password: bcrypt.hashSync(password, globalSaltRounds),
+            firstName,
+            lastName
+          })
+          .then(({ insertedId }) => {
+            const sessionId = findOrCreateSession(sessionsCollection, insertedId);
+            res.status(201).send({ insertedId, sessionId });
+          });
+      }
+    });
+  }
 });
 
-app.listen(8080, () => console.log("Listening on port 8080!"));
+app.listen(8080, () => console.log('Listening on port 8080!'));
