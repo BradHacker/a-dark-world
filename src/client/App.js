@@ -61,7 +61,7 @@ export default class App extends Component {
       })
       .then(
         (response) => {
-          cookie.save('guid', response.data.sessionId, { path: '/' });
+          cookie.save('sessionId', response.data.sessionId, { path: '/' });
           this.getUserInfo(response.data.insertedId);
         },
         (err) => {
@@ -81,6 +81,11 @@ export default class App extends Component {
     this.setState({ showSideMenu: !showSideMenu });
   }
 
+  isAdmin() {
+    const { user } = this.state;
+    return user.isAdmin === true;
+  }
+
   render() {
     const { user, showSideMenu } = this.state;
     return (
@@ -94,7 +99,7 @@ export default class App extends Component {
               toggleSideMenu={this.toggleSideMenu}
             />
           </div>
-          {showSideMenu ? <Sidemenu logout={this.logout} /> : <div />}
+          {showSideMenu ? <Sidemenu logout={this.logout} isAdmin={this.isAdmin()} /> : <div />}
         </div>
       </div>
     );

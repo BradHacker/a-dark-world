@@ -101,13 +101,16 @@ app.get('/api/v1/sessions/:sessionId', (req, res) => {
 });
 
 app.post('/api/v1/login', (req, res) => {
-  console.log(req);
   usersCollection.findOne({ username: req.body.username }).then((user) => {
     if (user && bcrypt.compareSync(req.body.password, user.password)) {
-      const sessionId = findOrCreateSession(sessionsCollection, user._id);
-      delete user.password;
-      res.json({ sessionId, user });
-      usersCollection.findOneAndUpdate({ _id: user._id }, { $set: { lastLogin: new Date() } });
+      if (typeof user._id !== typeof mongo.ObjectId) {
+        user._id = new mongo.ObjectId(user._id);
+      }
+      findOrCreateSession(sessionsCollection, user._id).then((sessionId) => {
+        delete user.password;
+        res.json({ sessionId, user });
+        usersCollection.findOneAndUpdate({ _id: user._id }, { $set: { lastLogin: new Date() } });
+      });
     } else {
       res.status(401).json({
         status: 401,
@@ -148,8 +151,12 @@ app.post('/api/v1/signup', (req, res) => {
             lastName
           })
           .then(({ insertedId }) => {
-            const sessionId = findOrCreateSession(sessionsCollection, insertedId);
-            res.status(201).send({ insertedId, sessionId });
+            if (typeof insertedId !== typeof mongo.ObjectId) {
+              insertedId = new mongo.ObjectId(insertedId);
+            }
+            findOrCreateSession(sessionsCollection, insertedId).then((sessionId) => {
+              res.status(201).send({ insertedId, sessionId });
+            });
           });
       }
     });

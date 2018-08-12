@@ -1,22 +1,29 @@
 const randomString = require('random-base64-string');
 
-module.exports.findOrCreateSession = (sessionsCollection, userId) => {
-  const session = sessionsCollection.findOne({ userId });
+module.exports.findOrCreateSession = async (sessionsCollection, userId) => {
+  const session = await sessionsCollection.findOne({ userId });
+  console.log(session);
   const sessionId = randomString(36);
   if (!session) {
-    sessionsCollection.insertOne({
-      userId,
-      sessionId
-    });
+    console.log('creating session');
+    sessionsCollection
+      .insertOne({
+        userId,
+        sessionId
+      })
+      .then(() => console.log('session created!'));
   } else {
-    sessionsCollection.findOneAndUpdate(
-      {
-        userId
-      },
-      {
-        $set: { sessionId }
-      }
-    );
+    console.log('updating session');
+    sessionsCollection
+      .findOneAndUpdate(
+        {
+          userId
+        },
+        {
+          $set: { sessionId }
+        }
+      )
+      .then(() => console.log('session updated!'));
   }
   return sessionId;
 };
