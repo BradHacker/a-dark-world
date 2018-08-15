@@ -13,6 +13,7 @@ const globalSaltRounds = 10;
 
 MongoClient.connect(
   'mongodb://localhost:27017/',
+  { useNewUrlParser: true },
   (err, client) => {
     if (err) throw err;
 
@@ -55,7 +56,7 @@ app.get('/api/v1/users', (req, res) => {
     .project({ password: 0 })
     .toArray()
     .then((response) => {
-      res.json({ users: response });
+      res.json(response);
     });
 });
 
@@ -64,13 +65,10 @@ app.get('/api/v1/users/:id', (req, res) => {
     .find({
       _id: new mongo.ObjectId(req.params.id)
     })
-    .project({ _id: 0, password: 0 })
+    .project({ password: 0 })
     .toArray()
     .then((user) => {
-      console.info('RESPONSE');
-      console.info(user);
       if (user[0]) {
-        console.log(user[0]);
         res.json(user[0]);
       } else {
         res.json({
@@ -78,6 +76,69 @@ app.get('/api/v1/users/:id', (req, res) => {
             message: 'User not found'
           }
         });
+      }
+    });
+});
+
+app.put('/api/v1/users/:id', (req, res) => {
+  const { username, firstName, lastName } = req.body;
+  const { id } = req.params;
+  if (!username || !firstName || !lastName) {
+    res.status(422).json({
+      errors: {
+        username: username ? undefined : 'no username provided',
+        firstName: firstName ? undefined : 'no first name provided',
+        lastName: lastName ? undefined : 'no last name provided',
+        message: 'Some fields were left blank'
+      }
+    });
+  } else {
+    usersCollection
+      .findOne({
+        $and: [{ username }, { _id: { $ne: new mongo.ObjectId(id) } }]
+      })
+      .then((user) => {
+        console.log(user);
+        if (user) {
+          res.status(422).json({
+            errors: {
+              username: 'Username already in use',
+              message: 'Username already in use'
+            }
+          });
+        } else {
+          usersCollection
+            .findOneAndUpdate(
+              { _id: new mongo.ObjectId(id) },
+              { $set: { username, firstName, lastName } },
+              {
+                projection: { password: 0 }
+              }
+            )
+            .then((newUser) => {
+              res.json({ ...newUser.value });
+            });
+        }
+      });
+  }
+});
+
+app.put('/api/v1/checkUsername', (req, res) => {
+  const { username, id } = req.body;
+  console.log(`checking username: ${username}`);
+  usersCollection
+    .findOne({
+      $and: [{ username }, { _id: { $ne: new mongo.ObjectId(id) } }]
+    })
+    .then((user) => {
+      if (user) {
+        res.status(422).json({
+          errors: {
+            username: 'Username already in use'
+          }
+        });
+      } else {
+        res.status(200).send();
       }
     });
 });
