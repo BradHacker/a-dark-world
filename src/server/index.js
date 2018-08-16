@@ -31,10 +31,11 @@ MongoClient.connect(
           usersCollection
             .insertOne({
               username: 'Admin',
-              first_name: 'Admin',
-              last_name: 'Admin',
+              firstName: 'Admin',
+              lastName: 'Admin',
               password,
-              isAdmin: true
+              isAdmin: true,
+              createdAt: new Date()
             })
             .then(() => {
               console.info('Added default Admin');
@@ -81,7 +82,9 @@ app.get('/api/v1/users/:id', (req, res) => {
 });
 
 app.put('/api/v1/users/:id', (req, res) => {
-  const { username, firstName, lastName } = req.body;
+  const {
+    username, firstName, lastName, lastModified, modifiedBy
+  } = req.body;
   const { id } = req.params;
   if (!username || !firstName || !lastName) {
     res.status(422).json({
@@ -110,7 +113,15 @@ app.put('/api/v1/users/:id', (req, res) => {
           usersCollection
             .findOneAndUpdate(
               { _id: new mongo.ObjectId(id) },
-              { $set: { username, firstName, lastName } },
+              {
+                $set: {
+                  username,
+                  firstName,
+                  lastName,
+                  lastModified,
+                  modifiedBy
+                }
+              },
               {
                 projection: { password: 0 }
               }
@@ -123,31 +134,58 @@ app.put('/api/v1/users/:id', (req, res) => {
   }
 });
 
+app.delete('/api/v1/users/:id', (req, res) => {
+  const { id } = req.params;
+  usersCollection.findOneAndDelete({ _id: new mongo.ObjectId(id) }).then(
+    (user) => {
+      res.json(user);
+    },
+    (err) => {
+      res.status(500).json({
+        errors: {
+          ...err,
+          message: 'An Unkown Error Has Occurred'
+        }
+      });
+    }
+  );
+});
+
 app.put('/api/v1/checkUsername', (req, res) => {
   const { username, id } = req.body;
-  console.log(`checking username: ${username}`);
-  usersCollection
-    .findOne({
-      $and: [{ username }, { _id: { $ne: new mongo.ObjectId(id) } }]
-    })
-    .then((user) => {
-      if (user) {
-        res.status(422).json({
-          errors: {
-            username: 'Username already in use'
-          }
-        });
-      } else {
-        res.status(200).send();
+  if (username) {
+    usersCollection
+      .findOne({
+        $and: [{ username }, { _id: { $ne: new mongo.ObjectId(id) } }]
+      })
+      .then((user) => {
+        if (user) {
+          res.status(422).json({
+            errors: {
+              username: 'Username already in use'
+            }
+          });
+        } else {
+          res.status(200).send();
+        }
+      });
+  } else {
+    res.status(422).json({
+      errors: {
+        username: 'Username is blank'
       }
     });
+  }
 });
 
 app.get('/api/v1/sessions/:sessionId', (req, res) => {
   sessionsCollection
-    .findOne({
-      sessionId: req.params.sessionId
-    })
+    .findOne(
+      {
+        sessionId: req.params.sessionId
+      },
+      { fields: { _id: 0 } }
+    )
     .then((session) => {
       if (session) {
         res.json(session);
@@ -168,8 +206,7 @@ app.post('/api/v1/login', (req, res) => {
         user._id = new mongo.ObjectId(user._id);
       }
       findOrCreateSession(sessionsCollection, user._id).then((sessionId) => {
-        delete user.password;
-        res.json({ sessionId, user });
+        res.json({ sessionId, userId: user._id });
         usersCollection.findOneAndUpdate({ _id: user._id }, { $set: { lastLogin: new Date() } });
       });
     } else {

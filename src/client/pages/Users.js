@@ -47,12 +47,13 @@ export default class Users extends Component {
   submitEdit(event, currentUser, updateUserFunc) {
     event.preventDefault();
     const { selectedUser } = this.state;
-    const modifiedBy = new Date();
+    const modifiedAt = new Date();
     const newUser = {
       ...selectedUser,
-      lastModified: modifiedBy,
+      lastModified: modifiedAt,
       modifiedBy: currentUser
     };
+    this.setState({ errors: undefined });
     axios.put(`/api/v1/users/${selectedUser._id}`, newUser).then(
       (response) => {
         this.getUsers();
@@ -71,6 +72,29 @@ export default class Users extends Component {
     );
   }
 
+  delete(userIndex) {
+    const { users } = this.state;
+    const updatedUsers = users.slice();
+    updatedUsers[userIndex].reallySure = (updatedUsers[userIndex].reallySure || 0) + 1;
+    this.setState({ users: updatedUsers });
+    if (updatedUsers[userIndex].reallySure === 2) {
+      this.deleteUserFinal(updatedUsers[userIndex]);
+    }
+  }
+
+  deleteUserFinal(user) {
+    axios
+      .delete(`/api/v1/users/${user._id}`)
+      .then(() => this.getUsers(), err => this.setState({ errors: err }));
+  }
+
+  cancelDelete(userIndex) {
+    const { users } = this.state;
+    const updatedUsers = users.slice();
+    delete updatedUsers[userIndex].reallySure;
+    this.setState({ users: updatedUsers });
+  }
+
   render() {
     const {
       users, selectedUser, errors, duplicateUsername
@@ -80,7 +104,12 @@ export default class Users extends Component {
         {({ user, updateUser }) => (
           <React.Fragment>
             {errors && errors.message ? (
-              <div className="alert alert-danger">{errors.message}</div>
+              <div className="alert alert-danger">
+                {errors.message}
+                <button type="button" className="close" data-dismiss="alert" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
             ) : (
               <div />
             )}
@@ -96,6 +125,7 @@ export default class Users extends Component {
                     placeholder="Username"
                     value={selectedUser.username}
                     onChange={this.handleUserChange}
+                    required
                   />
                   <div className="invalid-feedback">This Username Is Taken.</div>
                   <div className="valid-feedback">This Username Is Free To Use!</div>
@@ -147,39 +177,99 @@ export default class Users extends Component {
                     <th scope="col">Username</th>
                     <th scope="col">First Name</th>
                     <th scope="col">Last Name</th>
+                    <th scope="col">Created At</th>
                     <th scope="col">Last Login</th>
+                    <th scope="col">Last Modified</th>
                     <th scope="col" />
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map(_user => (
+                  {users.map((_user, index) => (
                     <tr key={`user${_user._id}`}>
                       <th scope="row">{_user._id}</th>
                       <td>{_user.username}</td>
                       <td>{_user.firstName}</td>
                       <td>{_user.lastName}</td>
-                      <td>
-                        {`${new Date(_user.lastLogin).toLocaleDateString()} ${new Date(
-                          _user.lastLogin
-                        ).toLocaleTimeString()}`}
+                      <td>{`${new Date(_user.createdAt).toLocaleDateString()} ${new Date(
+                        _user.createdAt
+                      ).toLocaleTimeString()}`}
                       </td>
                       <td>
-                        <div
-                          className="btn-group btn-group-sm"
-                          role="group"
-                          aria-label="User Actions"
-                        >
-                          <button
-                            type="button"
-                            className="btn btn-outline-warning"
-                            onClick={() => this.setState({ selectedUser: _user })}
+                        {_user.lastLogin
+                          && `${new Date(_user.lastLogin).toLocaleDateString()} ${new Date(
+                            _user.lastLogin
+                          ).toLocaleTimeString()}`}
+                        {!_user.lastLogin && 'Never'}
+                      </td>
+                      <td>
+                        {_user.lastModified
+                          && `${new Date(_user.lastModified).toLocaleDateString()} ${new Date(
+                            _user.lastModified
+                          ).toLocaleTimeString()}`}
+                        {!_user.lastModified && 'Never'}
+                      </td>
+                      <td>
+                        {_user._id !== user._id && !_user.reallySure ? (
+                          <div
+                            className="btn-group btn-group-sm"
+                            role="group"
+                            aria-label="User Actions"
                           >
-                            <i className="fa fa-pencil-alt" />
-                          </button>
-                          <button type="button" className="btn btn-outline-danger">
-                            <i className="fa fa-trash" />
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline-warning"
+                              title="Edit"
+                              onClick={() => this.setState({ selectedUser: _user })}
+                            >
+                              <i className="fa fa-pencil-alt" />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger"
+                              title="Delete"
+                              onClick={() => this.delete(index)}
+                            >
+                              <i className="fa fa-trash" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="btn-group btn-group-sm"
+                            role="group"
+                            aria-label="User Actions"
+                          >
+                            <button
+                              type="button"
+                              className={`btn btn-sm btn-outline-${
+                                _user.reallySure ? 'danger' : 'warning'
+                              }`}
+                              title={`${_user.reallySure ? 'Are you sure?' : 'Edit'}`}
+                              onClick={() => {
+                                if (_user.reallySure) {
+                                  this.delete(index);
+                                } else {
+                                  this.setState({ selectedUser: _user });
+                                }
+                              }}
+                            >
+                              {_user.reallySure ? (
+                                <i className="fa fa-trash" />
+                              ) : (
+                                <i className="fa fa-pencil-alt" />
+                              )}
+                            </button>
+                            {_user.reallySure && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-light"
+                                title="Cancel"
+                                onClick={() => this.cancelDelete(index)}
+                              >
+                                <i className="fa fa-times" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

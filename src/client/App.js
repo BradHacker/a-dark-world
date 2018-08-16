@@ -4,6 +4,7 @@ import cookie from 'react-cookies';
 import axios from 'axios';
 // Main pages
 import Home from './pages/Home';
+import Landing from './pages/Landing';
 import Users from './pages/Users';
 // Components
 import Nav from './components/Nav';
@@ -17,7 +18,7 @@ export default class App extends Component {
 
     this.state = {
       sessionId: cookie.load('sessionId'),
-      currentPage: 'home',
+      currentPage: '',
       userContext: defaultUser
     };
 
@@ -62,7 +63,7 @@ export default class App extends Component {
       .then(
         (response) => {
           cookie.save('sessionId', response.data.sessionId, { path: '/' });
-          this.setState({ user: response.data.user });
+          this.setUser(response.data.userId);
         },
         (err) => {
           console.error(err);
@@ -121,8 +122,11 @@ export default class App extends Component {
       case 'users':
         visiblePage = <Users user={user} />;
         break;
-      default:
+      case 'home':
         visiblePage = <Home />;
+        break;
+      default:
+        visiblePage = <Landing />;
     }
     return (
       <UserContext.Provider value={userContext}>

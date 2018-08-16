@@ -50,7 +50,7 @@ A Dark World
             </div>
             <div className="col-12 col-md-1" />
             <div className="col-auto mx-auto mr-md-0">
-              {!user ? (
+              {!user._id ? (
                 <div className="container login">
                   {showLogin ? (
                     <LoginForm
